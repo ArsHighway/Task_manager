@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/ArsHighway/Tasks-PSQL/internal/config"
 	taskHandler "github.com/ArsHighway/Tasks-PSQL/internal/handlers/taskHandler"
@@ -15,7 +16,12 @@ import (
 )
 
 func main() {
-	pool := config.NewPostgressPool("postgres://arsver@localhost:5432/arsver")
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://postgres:postgres@localhost:5432/app?sslmode=disable"
+	}
+
+	pool := config.NewPostgressPool(databaseURL)
 	defer pool.Close()
 
 	userRepo := userRepository.NewUserRepository(pool)

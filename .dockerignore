@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Build output
+bin/
+dist/
+build/
+
+# Go cache
+*.exe
+*.test
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Env files (очень важно)
+.env
+
+# Docker files (иногда)
+Dockerfile
+docker-compose.yaml
+
+# Logs
+*.log

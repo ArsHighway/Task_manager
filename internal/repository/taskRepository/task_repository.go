@@ -65,8 +65,11 @@ func (r *taskRepository) UpdateTask(ctx context.Context, id int, t *models.Task)
 	if cmdTag.RowsAffected() == 0 {
 		return nil, errs.ErrTaskNotFound
 	}
-	if err := r.pool.QueryRow(ctx, `SELECT * FROM tasks WHERE id = $1`, id).Scan(&t.ID, &t.Title,
-		&t.Status, &t.UserID, &t.CreatedAt); err != nil {
+	if err := r.pool.QueryRow(
+		ctx,
+		`SELECT id, title, description, status, user_id, created_at FROM tasks WHERE id = $1`,
+		id,
+	).Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.UserID, &t.CreatedAt); err != nil {
 		return nil, errs.ErrInvalidTask
 	}
 	return t, nil
