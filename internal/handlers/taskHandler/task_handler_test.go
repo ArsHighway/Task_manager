@@ -2,7 +2,6 @@ package task_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,13 +11,26 @@ import (
 	"github.com/ArsHighway/Tasks-PSQL/internal/handlers/mocks"
 	task "github.com/ArsHighway/Tasks-PSQL/internal/handlers/taskHandler"
 	"github.com/ArsHighway/Tasks-PSQL/internal/models"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 )
 
-func withChiURLParam(r *http.Request, name, value string) *http.Request {
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add(name, value)
-	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+func init() {
+	gin.SetMode(gin.TestMode)
+}
+
+func testGinContext(w *httptest.ResponseRecorder, method, path string, body *bytes.Buffer, params ...gin.Param) *gin.Context {
+	c, _ := gin.CreateTestContext(w)
+	var r *http.Request
+	if body != nil {
+		r = httptest.NewRequest(method, path, body)
+	} else {
+		r = httptest.NewRequest(method, path, nil)
+	}
+	c.Request = r
+	if len(params) > 0 {
+		c.Params = params
+	}
+	return c
 }
 
 func TestTaskHandler_CreateTask(t *testing.T) {
@@ -29,10 +41,10 @@ func TestTaskHandler_CreateTask(t *testing.T) {
 	}
 	h := task.NewTaskHandler(mockServ)
 	body := bytes.NewBufferString(`{"title":"Task 1","user_id":1}`)
-	req := httptest.NewRequest(http.MethodPost, "/", body)
-	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	h.CreateTask(rec, req)
+	c := testGinContext(rec, http.MethodPost, "/", body)
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.CreateTask(c)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, rec.Code)
 	}
@@ -52,9 +64,9 @@ func TestTaskHandler_GetTaskWithID(t *testing.T) {
 		ErrToReturn:  nil,
 	}
 	h := task.NewTaskHandler(mockServ)
-	req := withChiURLParam(httptest.NewRequest(http.MethodGet, "/tasks/1", nil), "id", "1")
 	rec := httptest.NewRecorder()
-	h.GetTaskWithID(rec, req)
+	c := testGinContext(rec, http.MethodGet, "/tasks/1", nil, gin.Param{Key: "id", Value: "1"})
+	h.GetTaskWithID(c)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
@@ -74,9 +86,9 @@ func TestTaskHandler_GetTasks(t *testing.T) {
 		ErrToReturn:   nil,
 	}
 	h := task.NewTaskHandler(mockServ)
-	req := httptest.NewRequest(http.MethodGet, "/tasks?status=open", nil)
 	rec := httptest.NewRecorder()
-	h.GetTasks(rec, req)
+	c := testGinContext(rec, http.MethodGet, "/tasks?status=open", nil)
+	h.GetTasks(c)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
@@ -97,10 +109,10 @@ func TestTaskHandler_UpdateTask(t *testing.T) {
 	}
 	h := task.NewTaskHandler(mockServ)
 	body := bytes.NewBufferString(`{"title":"Task1 ","description":"Description1","status":"open","user_id":1}`)
-	req := withChiURLParam(httptest.NewRequest(http.MethodPut, "/tasks/1", body), "id", "1")
-	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	h.UpdateTask(rec, req)
+	c := testGinContext(rec, http.MethodPut, "/tasks/1", body, gin.Param{Key: "id", Value: "1"})
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.UpdateTask(c)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
@@ -124,10 +136,10 @@ func TestTaskHandler_PatchTask(t *testing.T) {
 	}
 	h := task.NewTaskHandler(mockServ)
 	body := bytes.NewBufferString(`{"title":"Task1 ","description":"Description1","status":"open","user_id":1}`)
-	req := withChiURLParam(httptest.NewRequest(http.MethodPatch, "/tasks/1", body), "id", "1")
-	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	h.PatchTask(rec, req)
+	c := testGinContext(rec, http.MethodPatch, "/tasks/1", body, gin.Param{Key: "id", Value: "1"})
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.PatchTask(c)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
@@ -146,9 +158,9 @@ func TestTaskHandler_DeleteTask(t *testing.T) {
 		ErrToReturn: nil,
 	}
 	h := task.NewTaskHandler(mockServ)
-	req := withChiURLParam(httptest.NewRequest(http.MethodDelete, "/tasks/1", nil), "id", "1")
 	rec := httptest.NewRecorder()
-	h.DeleteTask(rec, req)
+	c := testGinContext(rec, http.MethodDelete, "/tasks/1", nil, gin.Param{Key: "id", Value: "1"})
+	h.DeleteTask(c)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}

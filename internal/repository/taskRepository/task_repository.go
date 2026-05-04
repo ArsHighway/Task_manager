@@ -48,8 +48,12 @@ func (r *taskRepository) CreateTask(ctx context.Context, t *models.Task) (*model
 
 func (r *taskRepository) GetTaskWithID(ctx context.Context, id int) (*models.Task, error) {
 	var t models.Task
-	err := r.pool.QueryRow(ctx, `SELECT title,description,status FROM tasks WHERE id = $1`, id).Scan(
-		&t.Title, &t.Description, &t.Status,
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT id, title, description, status, user_id, created_at FROM tasks WHERE id = $1`,
+		id,
+	).Scan(
+		&t.ID, &t.Title, &t.Description, &t.Status, &t.UserID, &t.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -149,7 +153,7 @@ func (r *taskRepository) DeleteTask(ctx context.Context, id int) error {
 func (r *taskRepository) GetTasks(ctx context.Context, args []any, baseQuery string) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx, baseQuery, args...)
 	if err != nil {
-		return nil, errs.ErrTaskNotFound
+		return nil, err
 	}
 	defer rows.Close()
 	tasks := []models.Task{}
@@ -169,7 +173,7 @@ func (r *taskRepository) GetTasks(ctx context.Context, args []any, baseQuery str
 		tasks = append(tasks, t)
 	}
 	if len(tasks) == 0 {
-		return nil, errs.ErrNotValidFields
+		return nil, errs.ErrTaskNotFound
 	}
 	return tasks, nil
 }

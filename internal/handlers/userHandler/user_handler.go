@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,7 +11,7 @@ import (
 	"github.com/ArsHighway/Tasks-PSQL/internal/errs"
 	"github.com/ArsHighway/Tasks-PSQL/internal/models"
 	user "github.com/ArsHighway/Tasks-PSQL/internal/service/userService"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -25,60 +24,45 @@ func NewUserHandler(serv user.UserService) *userHandler {
 }
 
 type UserHandler interface {
-	CreateUser(w http.ResponseWriter, r *http.Request)
-	GetUserWithID(w http.ResponseWriter, r *http.Request)
-	PatchUser(w http.ResponseWriter, r *http.Request)
-	DeleteUser(w http.ResponseWriter, r *http.Request)
-	GetTaskWithUserID(w http.ResponseWriter, r *http.Request)
+	CreateUser(c *gin.Context)
+	GetUserWithID(c *gin.Context)
+	PatchUser(c *gin.Context)
+	DeleteUser(c *gin.Context)
+	GetTaskWithUserID(c *gin.Context)
 }
 
-func (h *userHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+func (h *userHandler) CreateUser(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	log := slog.With("handler", "CreateUser", "method", r.Method)
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Warn("Method not allowed")
-		return
-	}
+	log := slog.With("handler", "CreateUser", "method", c.Request.Method)
 
 	var u models.User
-	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&u); err != nil {
+		c.String(http.StatusBadRequest, "Invalid request body")
 		log.Warn("JSON decoding failed", "error", err)
 		return
 	}
 	log.Info("Creating user", "name", u.Name, "email", u.Email)
 	user, err := h.serv.CreateUser(ctx, &u)
 	if err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Failed to create user")
 		log.Error("Create user failed", "error", err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		log.Warn("JSON encoding failed", "error", err)
-		return
-	}
+	c.JSON(http.StatusCreated, user)
 	log.Info("User created successfully", "userID", user.ID)
 }
 
-func (h *userHandler) GetUserWithID(w http.ResponseWriter, r *http.Request) {
-	log := slog.With("handler", "GetUserWithID", "request_method", r.Method)
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+func (h *userHandler) GetUserWithID(c *gin.Context) {
+	log := slog.With("handler", "GetUserWithID", "request_method", c.Request.Method)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Warn("Method not allowed")
-		return
-	}
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		http.Error(w, "Сonversion error", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Сonversion error")
 		log.Warn("Сonversion error", "error", err)
 		return
 	}
@@ -86,39 +70,31 @@ func (h *userHandler) GetUserWithID(w http.ResponseWriter, r *http.Request) {
 	u, err := h.serv.GetUserWithID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "User not found", http.StatusNotFound)
+			c.String(http.StatusNotFound, "User not found")
 		} else {
-			http.Error(w, "Failed to get user", http.StatusInternalServerError)
+			c.String(http.StatusInternalServerError, "Failed to get user")
 		}
 		log.Warn("Failed to get user", "error", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(u); err != nil {
-		log.Warn("JSON encoding failed", "error", err)
-		return
-	}
+	c.JSON(http.StatusOK, u)
 	log.Info("user received", "user", u.Name)
 }
 
-func (h *userHandler) PatchUser(w http.ResponseWriter, r *http.Request) {
-	log := slog.With("handler", "PatchUser", "request_method", r.Method)
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+func (h *userHandler) PatchUser(c *gin.Context) {
+	log := slog.With("handler", "PatchUser", "request_method", c.Request.Method)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
-	if r.Method != http.MethodPatch {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Warn("Method not allowed")
-		return
-	}
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		http.Error(w, "Сonversion error", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Сonversion error")
 		log.Warn("Сonversion error", "error", err)
 		return
 	}
 	var updates map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		c.String(http.StatusBadRequest, "Invalid request body")
 		log.Warn("JSON decoding failed", "error", err)
 		return
 	}
@@ -127,36 +103,27 @@ func (h *userHandler) PatchUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, errs.ErrUserNotFound):
-			http.Error(w, "User not found", http.StatusNotFound)
+			c.String(http.StatusNotFound, "User not found")
 		case errors.Is(err, errs.ErrNotValidFieldsUser):
-			http.Error(w, "No valid fields to update", http.StatusBadRequest)
+			c.String(http.StatusBadRequest, "No valid fields to update")
 		default:
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			c.String(http.StatusInternalServerError, "Internal Server Error")
 		}
 		log.Warn("Failed to patch user", "error", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(u); err != nil {
-		http.Error(w, "Problem with encode", http.StatusInternalServerError)
-		log.Warn("JSON encoding failed", "error", err)
-		return
-	}
+	c.JSON(http.StatusOK, u)
 	log.Info("user updated", "user", u.Name)
 }
 
-func (h *userHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	log := slog.With("handler", "DeleteUser", "request_method", r.Method)
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+func (h *userHandler) DeleteUser(c *gin.Context) {
+	log := slog.With("handler", "DeleteUser", "request_method", c.Request.Method)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Warn("Method not allowed")
-		return
-	}
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		http.Error(w, "Сonversion error", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Сonversion error")
 		log.Warn("Сonversion error", "error", err)
 		return
 	}
@@ -164,53 +131,39 @@ func (h *userHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	err = h.serv.DeleteUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, errs.ErrUserNotFound) {
-			http.Error(w, "User not found", http.StatusNotFound)
+			c.String(http.StatusNotFound, "User not found")
 		} else {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			c.String(http.StatusInternalServerError, "Internal Server Error")
 		}
 		log.Warn("Failed to delete user", "error", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	resp := map[string]interface{}{
+	c.JSON(http.StatusOK, gin.H{
 		"message": "User deleted successfully",
 		"userID":  id,
-	}
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Warn("JSON encoding failed", "error", err)
-	}
+	})
 
 	log.Info("User deleted", "userID", id)
 }
 
-func (h *userHandler) GetTaskWithUserID(w http.ResponseWriter, r *http.Request) {
-	log := slog.With("handler", "GetTaskWithUserID", "request_method", r.Method)
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Warn("Method not allowed")
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+func (h *userHandler) GetTaskWithUserID(c *gin.Context) {
+	log := slog.With("handler", "GetTaskWithUserID", "request_method", c.Request.Method)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		http.Error(w, "Сonversion error", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Сonversion error")
 		log.Warn("Сonversion error", "error", err)
 		return
 	}
 	log.Info("Get tasks for user", "userID", id)
 	tasks, err := h.serv.GetUserTasks(ctx, id)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 		log.Warn("Failed to get user tasks", "error", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(tasks); err != nil {
-		log.Warn("JSON encoding failed", "error", err)
-		return
-	}
+	c.JSON(http.StatusOK, tasks)
 	log.Info("user tasks received", "count", len(tasks))
 }

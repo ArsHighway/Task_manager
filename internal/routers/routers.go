@@ -3,26 +3,31 @@ package routers
 import (
 	task "github.com/ArsHighway/Tasks-PSQL/internal/handlers/taskHandler"
 	user "github.com/ArsHighway/Tasks-PSQL/internal/handlers/userHandler"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(userHandler user.UserHandler, taskHandler task.TaskHandler) chi.Router {
-	r := chi.NewRouter()
-	r.Route("/tasks", func(r chi.Router) {
-		r.Post("/", taskHandler.CreateTask)
-		r.Get("/", taskHandler.GetTasks)
-		r.Get("/{id}", taskHandler.GetTaskWithID)
-		r.Put("/{id}", taskHandler.UpdateTask)
-		r.Patch("/{id}", taskHandler.PatchTask)
-		r.Delete("/{id}", taskHandler.DeleteTask)
-	})
+func RegisterRoutes(userHandler user.UserHandler, taskHandler task.TaskHandler) *gin.Engine {
+	r := gin.New()
+	r.Use(gin.Recovery())
 
-	r.Route("/users", func(r chi.Router) {
-		r.Post("/", userHandler.CreateUser)
-		r.Get("/{id}/tasks", userHandler.GetTaskWithUserID)
-		r.Get("/{id}", userHandler.GetUserWithID)
-		r.Delete("/{id}", userHandler.DeleteUser)
-		r.Patch("/{id}", userHandler.PatchUser)
-	})
+	tasks := r.Group("/tasks")
+	{
+		tasks.POST("/", taskHandler.CreateTask)
+		tasks.GET("/", taskHandler.GetTasks)
+		tasks.GET("/:id", taskHandler.GetTaskWithID)
+		tasks.PUT("/:id", taskHandler.UpdateTask)
+		tasks.PATCH("/:id", taskHandler.PatchTask)
+		tasks.DELETE("/:id", taskHandler.DeleteTask)
+	}
+
+	users := r.Group("/users")
+	{
+		users.POST("/", userHandler.CreateUser)
+		users.GET("/:id/tasks", userHandler.GetTaskWithUserID)
+		users.GET("/:id", userHandler.GetUserWithID)
+		users.DELETE("/:id", userHandler.DeleteUser)
+		users.PATCH("/:id", userHandler.PatchUser)
+	}
+
 	return r
 }

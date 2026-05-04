@@ -80,6 +80,10 @@ func TestUserService_PatchUser(t *testing.T) {
 		"Name":  "Updated User",
 		"Email": "updated_email@gmail.com",
 	}
+	expectedUpdates := map[string]interface{}{
+		"name":  "Updated User",
+		"email": "updated_email@gmail.com",
+	}
 
 	got, err := svc.PatchUser(ctx, id, updates)
 	if err != nil {
@@ -89,8 +93,8 @@ func TestUserService_PatchUser(t *testing.T) {
 	if mockUserRepo.ReceivedID != id {
 		t.Errorf("expected id %d, got %d", id, mockUserRepo.ReceivedID)
 	}
-	if !reflect.DeepEqual(mockUserRepo.ReceivedUpdates, updates) {
-		t.Errorf("expected updates %+v, got %+v", updates, mockUserRepo.ReceivedUpdates)
+	if !reflect.DeepEqual(mockUserRepo.ReceivedUpdates, expectedUpdates) {
+		t.Errorf("expected updates %+v, got %+v", expectedUpdates, mockUserRepo.ReceivedUpdates)
 	}
 
 	want := mockUserRepo.UserToReturn

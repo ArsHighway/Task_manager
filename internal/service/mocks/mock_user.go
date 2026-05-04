@@ -40,5 +40,5 @@ func (m *MockUserRepo) PatchUser(ctx context.Context, id int, updates map[string
 
 func (m *MockUserRepo) DeleteUser(ctx context.Context, id int) error {
 	m.ReceivedID = id
-	return nil
+	return m.ErrToReturn
 }

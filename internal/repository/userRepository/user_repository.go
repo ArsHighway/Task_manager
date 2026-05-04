@@ -49,7 +49,7 @@ func (r *userRepository) GetUserWithID(ctx context.Context, id int) (*models.Use
 func (r *userRepository) PatchUser(ctx context.Context, id int, updates map[string]interface{}) (*models.User, error) {
 	qb := squirrel.Update("users").PlaceholderFormat(squirrel.Dollar)
 	for k, v := range updates {
-		qb.Set(k, v)
+		qb = qb.Set(k, v)
 	}
 	qb = qb.Where(squirrel.Eq{"id": id})
 	sql, args, err := qb.ToSql()
@@ -58,10 +58,10 @@ func (r *userRepository) PatchUser(ctx context.Context, id int, updates map[stri
 	}
 	cmdTag, err := r.pool.Exec(ctx, sql, args...)
 	if err != nil {
-		return nil, errs.ErrInvalidTask
+		return nil, errs.ErrInvalidUser
 	}
 	if cmdTag.RowsAffected() == 0 {
-		return nil, errs.ErrTaskNotFound
+		return nil, errs.ErrUserNotFound
 	}
 	var u models.User
 	if err := r.pool.QueryRow(ctx, `SELECT id, name, email, created_at FROM users WHERE id = $1`, id).Scan(

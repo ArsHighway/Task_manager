@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/ArsHighway/Tasks-PSQL/internal/config"
@@ -13,6 +12,7 @@ import (
 	"github.com/ArsHighway/Tasks-PSQL/internal/routers"
 	taskService "github.com/ArsHighway/Tasks-PSQL/internal/service/taskService"
 	userService "github.com/ArsHighway/Tasks-PSQL/internal/service/userService"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -29,11 +29,14 @@ func main() {
 	taskServ := taskService.NewTaskService(taskRepo)
 	userServ := userService.NewUserService(userRepo, taskRepo)
 
-	userHandler := userHandler.NewUserHandler(userServ)
-	taskHandler := taskHandler.NewTaskHandler(taskServ)
+	uh := userHandler.NewUserHandler(userServ)
+	th := taskHandler.NewTaskHandler(taskServ)
 
-	r := routers.RegisterRoutes(userHandler, taskHandler)
+	gin.SetMode(gin.ReleaseMode)
+	r := routers.RegisterRoutes(uh, th)
 
 	log.Println("Server started at :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	if err := r.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }

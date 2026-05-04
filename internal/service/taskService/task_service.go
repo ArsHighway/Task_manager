@@ -100,7 +100,7 @@ func (s *taskService) DeleteTask(ctx context.Context, id int) error {
 	if errors.Is(err, errs.ErrTaskNotFound) {
 		return errs.ErrTaskNotFound
 	}
-	return nil
+	return err
 }
 
 func (s *taskService) GetTasksByUserID(ctx context.Context, userID int) ([]models.Task, error) {
@@ -167,6 +167,9 @@ func (s *taskService) GetTasks(ctx context.Context, params url.Values) ([]models
 	qb = qb.Limit(uint64(limit)).Offset(uint64((page - 1) * limit))
 
 	sql, args, err := qb.ToSql()
+	if err != nil {
+		return nil, err
+	}
 	tasks, err := s.repo.GetTasks(ctx, args, sql)
 	if err != nil {
 		return nil, err

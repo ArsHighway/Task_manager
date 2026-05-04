@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ArsHighway/Tasks-PSQL/internal/errs"
@@ -49,22 +49,22 @@ func (s *userService) GetUserWithID(ctx context.Context, id int) (*models.User, 
 }
 
 func (s *userService) PatchUser(ctx context.Context, id int, updates map[string]interface{}) (*models.User, error) {
-	var arg []interface{}
-	c := 1
-	allowed := map[string]bool{
-		"name":  true,
-		"email": true,
+	allowed := map[string]struct{}{
+		"name":  {},
+		"email": {},
 	}
-	parts := []string{}
+	filtered := make(map[string]interface{})
 	for k, v := range updates {
-		if !allowed[k] {
+		key := strings.ToLower(k)
+		if _, ok := allowed[key]; !ok {
 			continue
 		}
-		arg = append(arg, v)
-		parts = append(parts, fmt.Sprintf("%s = $%d", k, c))
-		c++
+		filtered[key] = v
 	}
-	return s.userRepo.PatchUser(ctx, id, updates)
+	if len(filtered) == 0 {
+		return nil, errs.ErrNotValidFieldsUser
+	}
+	return s.userRepo.PatchUser(ctx, id, filtered)
 }
 
 func (s *userService) DeleteUser(ctx context.Context, id int) error {
